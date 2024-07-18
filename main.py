@@ -62,6 +62,28 @@ def create_federated_data_non_iid(train_x, train_y, num_clients, alpha=0.5, clie
 
     return federated_data
 
+
+def create_random_label_attack(data_y, percentage, random_seed=1):
+    np.random.seed(random_seed)
+    n_samples = len(data_y)
+    n_attack = int(n_samples * percentage)
+    attack_indices = np.random.choice(n_samples, n_attack, replace=False)
+    random_labels = np.random.randint(0, np.max(data_y) + 1, size=n_attack)
+    attacked_y = np.array(data_y)
+    attacked_y[attack_indices] = random_labels
+    return attacked_y
+
+
+def create_label_mapping_attack(data_y, source_label, target_label, percentage, random_seed=1):
+    np.random.seed(random_seed)
+    source_indices = np.where(data_y == source_label)[0]
+    n_attack = int(len(source_indices) * percentage)
+    attack_indices = np.random.choice(source_indices, n_attack, replace=False)
+    attacked_y = np.array(data_y)
+    attacked_y[attack_indices] = target_label
+    return attacked_y
+
+
 def save_federated_data(federated_data, path):
     if not os.path.exists(path):
         os.makedirs(path)
@@ -78,22 +100,38 @@ def save_test_data(test_images, test_labels, path):
     print(f"Test data saved to {path}")
 
 def main(args):
+    # Download and load the dataset
     print(f"Preparing federated data for {args.dataset} dataset with {args.num_clients} clients using {args.sample} sampling method.")  
     if args.dataset == 'emnist':
         raw_data_util.download_and_extract_emnist(RAW_DATA_DIR)        
         (train_x, train_y), (test_x, test_y) = raw_data_util.load_emnist(RAW_DATA_DIR, mode=args.subset)
         train_x = train_x / 255.0
         test_x = test_x / 255.0
-        
     print(f"{args.dataset} dataset loaded with {len(train_x)} training samples and {len(test_x)} test samples.")
     
+    
+    # Apply attack if specified
+    if args.attack == 'random_label':
+        print(f"Applying random label attack on {args.attack_percentage*100}% of the training data.")
+        train_y = create_random_label_attack(train_y, args.attack_percentage, random_seed=args.seed)
+    elif args.attack == 'label_mapping':
+        print(f"Applying label mapping attack: {args.source_label} -> {args.target_label} on {args.attack_percentage*100}% of the training data.")
+        train_y = create_label_mapping_attack(train_y, args.source_label, args.target_label, args.attack_percentage, random_seed=args.seed)
+    else:
+        print("No attack applied.")
+    
+    # Generate federated data
     if args.sample == 'iid':
         federated_data = create_federated_data_iid(train_x, train_y, args.num_clients, client_id_prefix=args.c_prefix, random_seed=args.seed)
     else:
         federated_data = create_federated_data_non_iid(train_x, train_y, args.num_clients, alpha=args.alpha, client_id_prefix=args.c_prefix, random_seed=args.seed)
     
     # Save or use federated_data as needed
-    save_dir = os.path.join(FEDL_DATA_DIR, f"{args.dataset}_{args.subset}_{args.num_clients}_{args.sample}")
+    if args.attack:
+        save_dir = os.path.join(FEDL_DATA_DIR, f"{args.dataset}_{args.subset}_{args.num_clients}_{args.sample}_{args.attack}_{args.attack_percentage}")
+    else:
+        save_dir = os.path.join(FEDL_DATA_DIR, f"{args.dataset}_{args.subset}_{args.num_clients}_{args.sample}")
+    
     save_federated_data(federated_data, os.path.join(save_dir, 'train'))
     save_test_data(test_x, test_y, os.path.join(save_dir, 'test'))
     print(f"Federated data created and saved for {len(federated_data)} clients.")
@@ -107,6 +145,11 @@ if __name__ == '__main__':
     parser.add_argument('--alpha', type=float, default=0.5, help='Alpha value for non_iid sample with Dirichlet distribution')
     parser.add_argument('--c_prefix', type=str, default='client_', help='Client name prefix')
     parser.add_argument('--seed', type=int, default=1, help='Seed for random number generator')
+    parser.add_argument('--attack', type=str, default=None, choices=['random_label', 'label_mapping'], help='Type of attack to apply')
+    parser.add_argument('--attack_percentage', type=float, default=0.1, help='Percentage of data to attack')
+    parser.add_argument('--source_label', type=int, default=0, help='Source label for label mapping attack')
+    parser.add_argument('--target_label', type=int, default=1, help='Target label for label mapping attack')
     
+
     main(parser.parse_args())
     
