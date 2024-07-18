@@ -4,7 +4,7 @@ This tool is designed to process centralized datasets into federated learning da
 
 ## Features
 
-- **DDownload and Extract Dataset**: Automatically downloads and extracts the EMNIST dataset if not already available.
+- **Download and Extract Dataset**: Automatically downloads and extracts the EMNIST dataset if not already available.
 - **IID Data Partitioning**: Splits the dataset into IID partitions across multiple clients.
 - **Non-IID Data Partitioning**: Splits the dataset into non-IID partitions using Dirichlet distribution across multiple clients.
 - **Flexible Client Configuration**: Allows custom prefix for client IDs and configurable alpha value for Dirichlet distribution.
