@@ -2,28 +2,35 @@ import numpy as np
 import os
 import gzip
 import shutil
-import zipfile
-import wget
 
-EMNIST_BYCLASS_TRAIN_IMAGES = 'emnist-byclass-train-images-idx3-ubyte.gz'
-EMNIST_BYCLASS_TRAIN_LABELS = 'emnist-byclass-train-label-idx1-ubyte.gz'
-EMNIST_BYCLASS_TEST_IMAGES = 'emnist-byclass-test-images-idx3-ubyte.gz'
-EMNIST_BYCLASS_TEST_LABELS = 'emnist-byclass-test-label--idx1-ubyte.gz'
-EMNIST_DIGIT_TRAIN_IMAGES = 'emnist-digits-train-images-idx3-ubyte.gz'
-EMNIST_DIGIT_TRAIN_LABELS = 'emnist-digits-train-labels-idx1-ubyte.gz'
-EMNIST_DIGIT_TEST_IMAGES = 'emnist-digits-test-images-idx3-ubyte.gz'
-EMNIST_DIGIT_TEST_LABELS = 'emnist-digits-test-labels-idx1-ubyte.gz'
-EMNIST_BALANCED_TRAIN_IMAGES = 'emnist-balanced-train-images-idx3-ubyte.gz'
-EMNIST_BALANCED_TRAIN_LABELS = 'emnist-balanced-train-labels-idx1-ubyte.gz'
-EMNIST_BALANCED_TEST_IMAGES = 'emnist-balanced-test-images-idx3-ubyte.gz'
-EMNIST_BALANCED_TEST_LABELS = 'emnist-balanced-test-labels-idx1-ubyte.gz'
+import utils.download_manager as download_manager
+
+from enum import Enum
+from utils.dataset_files import get_emnist_files
 
 
+class Dataset(Enum):
+    EMNIST = 'emnist'
+
+
+class EMNISTSubset(Enum):
+    BALANCED = 'balanced'
+    BYCLASS = 'byclass'
+    BYMERGE = 'bymerge'
+    DIGITS = 'digits'
+    LETTERS = 'letters'
+    MNIST = 'mnist'
+    
+    
 def extract_gz(file_path):
-    with gzip.open(file_path, 'rb') as f_in:
-        with open(file_path[:-3], 'wb') as f_out:
-            shutil.copyfileobj(f_in, f_out)
-
+    try:
+        with gzip.open(file_path, 'rb') as f_in:
+            with open(file_path[:-3], 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+    except Exception as e:
+        exit(f"Error extracting {file_path}: {e}")
+        
+        
 def load_images(file_path):
     with open(file_path, 'rb') as file:
         file.read(16)  # Skip the magic number and dimensions
@@ -31,64 +38,38 @@ def load_images(file_path):
         data = data.reshape(-1, 28, 28, 1)
     return data
 
+
 def load_labels(file_path):
     with open(file_path, 'rb') as file:
         file.read(8)  # Skip the magic number and number of items
         labels = np.frombuffer(file.read(), dtype=np.uint8)
     return labels
 
-def download_and_extract_emnist(data_dir):
-    url = 'https://biometrics.nist.gov/cs_links/EMNIST/gzip.zip'
-    zip_path = os.path.join(data_dir, 'gzip.zip')
-    extract_path = os.path.join(data_dir, 'emnist')
 
-    if not os.path.exists(data_dir):
-        os.makedirs(data_dir)
-    
-    if not os.path.exists(extract_path):
-        print(f"Downloading EMNIST dataset from {url}...")
-        wget.download(url, zip_path)
-        
-        print("\nExtracting EMNIST dataset...")
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(extract_path)
-        
-        os.remove(zip_path)
-        print("EMNIST dataset downloaded and extracted.")
+def load_raw_data(data_dir, dataset: Dataset, subset: EMNISTSubset):
+    if dataset == Dataset.EMNIST:
+        return load_emnist(data_dir, subset)
     else:
-        print("EMNIST dataset already exists. Skipping download.")
+        raise ValueError(f"Dataset {dataset} not supported.")
 
 
-def load_emnist(data_path, mode='digits'):
-    emnist_path = os.path.join(data_path, 'emnist/gzip')
-    if mode == 'digits':
-        train_images = os.path.join(emnist_path, EMNIST_DIGIT_TRAIN_IMAGES)
-        train_labels = os.path.join(emnist_path, EMNIST_DIGIT_TRAIN_LABELS)
-        test_images = os.path.join(emnist_path, EMNIST_DIGIT_TEST_IMAGES)
-        test_labels = os.path.join(emnist_path, EMNIST_DIGIT_TEST_LABELS)
-    elif mode == 'balanced':
-        train_images = os.path.join(emnist_path, EMNIST_BALANCED_TRAIN_IMAGES)
-        train_labels = os.path.join(emnist_path, EMNIST_BALANCED_TRAIN_LABELS)
-        test_images = os.path.join(emnist_path, EMNIST_BALANCED_TEST_IMAGES)
-        test_labels = os.path.join(emnist_path, EMNIST_BALANCED_TEST_LABELS)
-    elif mode == 'byclass':
-        train_images = os.path.join(emnist_path, EMNIST_BYCLASS_TRAIN_IMAGES)
-        train_labels = os.path.join(emnist_path, EMNIST_BYCLASS_TRAIN_LABELS)
-        test_images = os.path.join(emnist_path, EMNIST_BYCLASS_TEST_IMAGES)
-        test_labels = os.path.join(emnist_path, EMNIST_BYCLASS_TEST_LABELS)
+
+def load_emnist(data_dir, subset=EMNISTSubset.BALANCED):
+    emnist_path = os.path.join(data_dir, 'emnist', subset)
+    files = get_emnist_files(subset)
+    
+    for file in files.values():
+        if not os.path.exists(os.path.join(emnist_path, file)):
+            print(f"EMNIST {subset} dataset not found.")
+            print(f"Downloading EMNIST {subset} dataset...")
+            download_manager.download_dataset('emnist', subset, data_dir)
         
-    if not os.path.exists(train_images[:-3]):
-        extract_gz(train_images)
-    if not os.path.exists(train_labels[:-3]):
-        extract_gz(train_labels)
-    if not os.path.exists(test_images[:-3]):
-        extract_gz(test_images)
-    if not os.path.exists(test_labels[:-3]):
-        extract_gz(test_labels)
+        if not os.path.exists(os.path.join(emnist_path, file[:-3])) & os.path.exists(os.path.join(emnist_path, file)):
+            extract_gz(os.path.join(emnist_path, file))
 
-    train_images = load_images(train_images[:-3])
-    train_labels = load_labels(train_labels[:-3])
-    test_images = load_images(test_images[:-3])
-    test_labels = load_labels(test_labels[:-3])
+    train_images = load_images(os.path.join(emnist_path, files['train_x'][:-3]))
+    train_labels = load_labels(os.path.join(emnist_path, files['train_y'][:-3]))
+    test_images = load_images(os.path.join(emnist_path, files['test_x'][:-3]))
+    test_labels = load_labels(os.path.join(emnist_path, files['test_y'][:-3]))
 
     return (train_images, train_labels), (test_images, test_labels)

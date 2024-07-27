@@ -9,6 +9,7 @@ from tqdm import tqdm
 RAW_DATA_DIR = './raw_data'
 FEDL_DATA_DIR = './fedl_data'
 
+
 def create_federated_data_iid(train_x, train_y, num_clients, client_id_prefix='client_', random_seed=1):
     num_classes = len(np.unique(train_y))
     federated_data = defaultdict(lambda: {'x': [], 'y': []})
@@ -92,6 +93,7 @@ def save_federated_data(federated_data, path):
         np.save(os.path.join(path, f"{client_id}_y.npy"), data['y'])
     print(f"Federated data saved to {path}")
 
+
 def save_test_data(test_images, test_labels, path):
     if not os.path.exists(path):
         os.makedirs(path)
@@ -99,12 +101,12 @@ def save_test_data(test_images, test_labels, path):
     np.save(os.path.join(path, "test_labels.npy"), test_labels)
     print(f"Test data saved to {path}")
 
+
 def main(args):
     # Download and load the dataset
     print(f"Preparing federated data for {args.dataset} dataset with {args.num_clients} clients using {args.sample} sampling method.")  
-    if args.dataset == 'emnist':
-        raw_data_util.download_and_extract_emnist(RAW_DATA_DIR)        
-        (train_x, train_y), (test_x, test_y) = raw_data_util.load_emnist(RAW_DATA_DIR, mode=args.subset)
+    if args.dataset == 'emnist':      
+        (train_x, train_y), (test_x, test_y) = raw_data_util.load_emnist(RAW_DATA_DIR, subset=args.subset)
         train_x = train_x / 255.0
         test_x = test_x / 255.0
     print(f"{args.dataset} dataset loaded with {len(train_x)} training samples and {len(test_x)} test samples.")
