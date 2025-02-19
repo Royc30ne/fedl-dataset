@@ -251,7 +251,7 @@ def main(args):
 if __name__ == '__main__':
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Federated Learning Data Preparation')
-    parser.add_argument('--dataset', type=str, required=True, help='Dataset to use (e.g., emnist)')
+    parser.add_argument('--dataset', type=str, required=True, choices=['emnist', 'cifar10', 'cifar100'], help='Dataset to use (e.g., emnist)')
     parser.add_argument('--subset', type=str, default='balanced', choices=['balanced', 'digits', 'byclass'], help='Subset of the dataset to use')
     parser.add_argument('--test_owner', type=str, default='server', choices=['server', 'client'],help='Test data owner')
     parser.add_argument('--num_clients', type=int, default=2000, required=True, help='Number of clients')
