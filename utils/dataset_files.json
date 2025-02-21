@@ -1,0 +1,22 @@
+{
+    "emnist": {
+        "digits": {
+            "train_x": "emnist-digits-train-images-idx3-ubyte",
+            "train_y": "emnist-digits-train-labels-idx1-ubyte",
+            "test_x": "emnist-digits-test-images-idx3-ubyte",
+            "test_y": "emnist-digits-test-labels-idx1-ubyte"
+        },
+        "balanced": {
+            "train_x": "emnist-balanced-train-images-idx3-ubyte",
+            "train_y": "emnist-balanced-train-labels-idx1-ubyte",
+            "test_x": "emnist-balanced-test-images-idx3-ubyte",
+            "test_y": "emnist-balanced-test-labels-idx1-ubyte"
+        },
+        "byclass": {
+            "train_x": "emnist-byclass-train-images-idx3-ubyte",
+            "train_y": "emnist-byclass-train-labels-idx1-ubyte",
+            "test_x": "emnist-byclass-test-images-idx3-ubyte",
+            "test_y": "emnist-byclass-test-labels-idx1-ubyte"
+        }
+    }
+}

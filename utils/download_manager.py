@@ -1,20 +1,9 @@
 import os
+import json
 
-from utils.dataset_files import get_emnist_files
 from huggingface_hub import hf_hub_download
 
-
-# def download_dataset(dataset, subset, data_dir):
-#     if dataset == 'emnist':
-#         repo_id = 'Royc30ne/emnist-'+subset
-#         files = get_emnist_files(subset).values()
-#         data_dir = os.path.join(data_dir, 'emnist', subset)
-#         download_from_hugging_face(repo_id, files, data_dir)
-#     elif dataset == 'cifar10':
-#         print("MNIST dataset is already available in PyTorch.")
-#     else:
-#         print(f"Dataset {dataset} not supported.")
-
+DOWNLOAD_FILE_INDEX = './utils/download_files.json'
 
 def download_dataset(dataset, data_dir, subset=None):
 
@@ -38,15 +27,27 @@ def download_dataset(dataset, data_dir, subset=None):
             # Try to download the dataset from huggingface hub
             print(f"Downloading {dataset} dataset from huggingface hub...")
             repo_id = 'Royc30ne/emnist-'+subset
-            files = get_emnist_files(subset).values()
+            files = get_download_files(dataset, subset)
             data_dir = os.path.join(data_dir, 'emnist', subset)
             download_from_hugging_face(repo_id, files, data_dir)
             
-
         except Exception as e:
             print(f"Error downloading dataset: {e}")
 
+def get_download_files(dataset, subset=None):
+    file_index = json.load(open(DOWNLOAD_FILE_INDEX, 'r'))
 
+    try :
+        if subset:
+            files = file_index[dataset][subset]
+        else:
+            files = file_index[dataset]
+        return files.values()
+    
+    except KeyError:
+        print("Dataset or subset not found in download file index.")
+        exit()
+    
 def download_from_hugging_face(repo_id, files, download_dir):
     if not os.path.exists(download_dir):
         os.makedirs(download_dir)

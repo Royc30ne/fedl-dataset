@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import gzip
+import json
 import wget
 import pickle
 import shutil
@@ -9,26 +10,12 @@ import zipfile
 from utils.download_manager import download_dataset
 
 
+DATASET_FILE_INDEX = './utils/dataset_files.json'
 # Dataset URLs
 EMNIST_URL = 'https://biometrics.nist.gov/cs_links/EMNIST/gzip.zip'         # EMNIST URL
 CIFAR10_URL = 'https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz'     # CIFAR-10 URL
 CIFAR100_URL = 'https://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz'   # CIFAR-100 URL
 
-# CIFAR-10 dataset file names
-
-# EMNIST dataset file names
-EMNIST_BYCLASS_TRAIN_IMAGES = 'emnist-byclass-train-images-idx3-ubyte'
-EMNIST_BYCLASS_TRAIN_LABELS = 'emnist-byclass-train-labels-idx1-ubyte'
-EMNIST_BYCLASS_TEST_IMAGES = 'emnist-byclass-test-images-idx3-ubyte'
-EMNIST_BYCLASS_TEST_LABELS = 'emnist-byclass-test-labels-idx1-ubyte'
-EMNIST_DIGIT_TRAIN_IMAGES = 'emnist-digits-train-images-idx3-ubyte'
-EMNIST_DIGIT_TRAIN_LABELS = 'emnist-digits-train-labels-idx1-ubyte'
-EMNIST_DIGIT_TEST_IMAGES = 'emnist-digits-test-images-idx3-ubyte'
-EMNIST_DIGIT_TEST_LABELS = 'emnist-digits-test-labels-idx1-ubyte'
-EMNIST_BALANCED_TRAIN_IMAGES = 'emnist-balanced-train-images-idx3-ubyte'
-EMNIST_BALANCED_TRAIN_LABELS = 'emnist-balanced-train-labels-idx1-ubyte'
-EMNIST_BALANCED_TEST_IMAGES = 'emnist-balanced-test-images-idx3-ubyte'
-EMNIST_BALANCED_TEST_LABELS = 'emnist-balanced-test-labels-idx1-ubyte'
 
 def extract_gz(file_path):
     """
@@ -37,6 +24,7 @@ def extract_gz(file_path):
     with gzip.open(file_path, 'rb') as f_in:
         with open(file_path[:-3], 'wb') as f_out:
             shutil.copyfileobj(f_in, f_out)
+
 
 def load_images(file_path):
     """
@@ -47,6 +35,7 @@ def load_images(file_path):
         data = np.frombuffer(file.read(), dtype=np.uint8)
         data = data.reshape(-1, 28, 28, 1)
     return data
+
 
 def load_labels(file_path):
     with open(file_path, 'rb') as file:
@@ -78,21 +67,12 @@ def download_and_extract_emnist(data_dir):
 
 def load_emnist(data_path, subset='digits'):
     emnist_path = os.path.join(data_path, 'emnist', subset)
-    if subset == 'digits':
-        train_images = os.path.join(emnist_path, EMNIST_DIGIT_TRAIN_IMAGES)
-        train_labels = os.path.join(emnist_path, EMNIST_DIGIT_TRAIN_LABELS)
-        test_images = os.path.join(emnist_path, EMNIST_DIGIT_TEST_IMAGES)
-        test_labels = os.path.join(emnist_path, EMNIST_DIGIT_TEST_LABELS)
-    elif subset == 'balanced':
-        train_images = os.path.join(emnist_path, EMNIST_BALANCED_TRAIN_IMAGES)
-        train_labels = os.path.join(emnist_path, EMNIST_BALANCED_TRAIN_LABELS)
-        test_images = os.path.join(emnist_path, EMNIST_BALANCED_TEST_IMAGES)
-        test_labels = os.path.join(emnist_path, EMNIST_BALANCED_TEST_LABELS)
-    elif subset == 'byclass':
-        train_images = os.path.join(emnist_path, EMNIST_BYCLASS_TRAIN_IMAGES)
-        train_labels = os.path.join(emnist_path, EMNIST_BYCLASS_TRAIN_LABELS)
-        test_images = os.path.join(emnist_path, EMNIST_BYCLASS_TEST_IMAGES)
-        test_labels = os.path.join(emnist_path, EMNIST_BYCLASS_TEST_LABELS)
+    file_index = get_dataset_file_index('emnist', subset)
+
+    train_images = os.path.join(emnist_path, file_index['train_x'])
+    train_labels = os.path.join(emnist_path, file_index['train_y'])
+    test_images = os.path.join(emnist_path, file_index['test_x'])
+    test_labels = os.path.join(emnist_path, file_index['test_y'])
         
     if not os.path.exists(train_images) or not os.path.exists(train_labels) or not os.path.exists(test_images) or not os.path.exists(test_labels):
         print("EMNIST dataset files not found. Try to download the dataset ...")
@@ -110,3 +90,19 @@ def load_emnist(data_path, subset='digits'):
     test_labels = load_labels(test_labels)
 
     return (train_images, train_labels), (test_images, test_labels)
+
+
+def get_dataset_file_index(dataset, subset=None):
+    file_index = json.load(open(DATASET_FILE_INDEX, 'r'))
+
+    try:
+        if subset:
+            files = file_index[dataset][subset]
+        else:
+            files = file_index[dataset]
+    
+    except KeyError:
+        print("Dataset not found in download file index.")
+        exit()
+        
+    return dict(files)
