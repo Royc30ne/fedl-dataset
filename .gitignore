@@ -74,6 +74,7 @@ target/
 # Environments
 .env
 .envrc
+.conda
 venv/
 venv.bak
 

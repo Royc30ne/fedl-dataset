@@ -201,8 +201,8 @@ def main(args):
     # Download and load the dataset
     print(f"Preparing federated data for {args.dataset} dataset with {args.num_clients} clients using {args.sample} sampling method.")  
     if args.dataset == 'emnist':
-        raw_data_util.download_and_extract_emnist(RAW_DATA_DIR)        
-        (train_x, train_y), (test_x, test_y) = raw_data_util.load_emnist(RAW_DATA_DIR, mode=args.subset)
+        # raw_data_util.download_dataset(RAW_DATA_DIR)        
+        (train_x, train_y), (test_x, test_y) = raw_data_util.load_emnist(RAW_DATA_DIR, subset=args.subset)
         # Normalize pixel values
         train_x = train_x / 255.0
         test_x = test_x / 255.0
