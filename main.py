@@ -158,15 +158,9 @@ def balance_client_counts(client_data_indices, target_count, random_seed=1):
     balanced_indices = [sorted(list(s)) for s in client_sets]
     return balanced_indices
 
-def create_random_label_attack(data_y, percentage, random_seed=1):
+def create_random_label_attack(data_y, random_seed=1):
     np.random.seed(random_seed)
-    n_samples = len(data_y)
-    n_attack = int(n_samples * percentage)
-    attack_indices = np.random.choice(n_samples, n_attack, replace=False)
-    random_labels = np.random.randint(0, np.max(data_y) + 1, size=n_attack)
-    attacked_y = np.array(data_y)
-    attacked_y[attack_indices] = random_labels
-    return attacked_y
+    return np.random.shuffle(data_y)
 
 def create_label_mapping_attack(data_y, source_label, target_label, percentage, random_seed=1):
     np.random.seed(random_seed)
@@ -213,17 +207,10 @@ def main(args):
     elif args.dataset == 'cifar100':
         return
 
-    print(f"Loading {args.dataset} dataset with {len(train_x)} training samples and {len(test_x)} test samples.")
-
-    # Apply attack if specified
-    if args.attack == 'random_label':
-        print(f"Applying random label attack on {args.attack_percentage*100}% of the training data.")
-        train_y = create_random_label_attack(train_y, args.attack_percentage, random_seed=args.seed)
-    elif args.attack == 'label_mapping':
-        print(f"Applying label mapping attack: {args.source_label} -> {args.target_label} on {args.attack_percentage*100}% of the training data.")
-        train_y = create_label_mapping_attack(train_y, args.source_label, args.target_label, args.attack_percentage, random_seed=args.seed)
     else:
-        print("No attack applied.")
+        raise ValueError(f"Unsupported dataset: {args.dataset}")
+    
+    print(f"Loading {args.dataset} dataset with {len(train_x)} training samples and {len(test_x)} test samples.")
     
     # Generate federated data
     print("Generating federated data...")
@@ -232,6 +219,33 @@ def main(args):
     else:
         train_data = create_federated_data_non_iid(train_x, train_y, args.num_clients, alpha=args.alpha, client_id_prefix=args.c_prefix, random_seed=args.seed)
     
+    # train_data looks like this: federated_data[client_id]['x']  
+    # Now, start to process attack dataset
+    if args.attack != None:
+
+        # First, lets sample the the attacker clients
+        attack_number = int(args.num_clients * args.attack_percentage)
+        attack_clients = np.random.choice(list(train_data.keys()), attack_number, replace=False)
+        
+        # attacker clients' ids will be added to one more prefix based on the original client id
+        for client_id in attack_clients:
+            # Add the attack suffix to the client id
+            new_client_id = f"{client_id}_attacker"
+            # Add the attacker data to the federated data
+            if args.attack == 'random_label':
+                attack_xs = train_data[client_id]['x']
+                attack_ys = create_random_label_attack(train_data[client_id]['y'], random_seed=args.seed)
+                train_data[new_client_id] = {'x': attack_xs, 'y': attack_ys}
+            elif args.attack == 'label_mapping':
+                raise NotImplementedError("Label mapping attack is not implemented yet.")
+            else:
+                raise ValueError(f"Unsupported attack type: {args.attack}")
+            # Remove the original client id
+            del train_data[client_id]
+    else:
+        print("No attack applied.")
+
+
     # Save or use federated_data as needed
     if args.attack:
         save_dir = os.path.join(FEDL_DATA_DIR, f"{args.dataset}_{args.subset}_{args.num_clients}_{args.sample}_{args.attack}_{args.attack_percentage}")
