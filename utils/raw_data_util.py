@@ -19,6 +19,11 @@ CIFAR10_URL = 'https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz'     # CI
 CIFAR100_URL = 'https://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz'   # CIFAR-100 URL
 
 
+def unpickle(file):
+    with open(file, 'rb') as fo:
+        dict = pickle.load(fo, encoding='bytes')
+    return dict
+
 def extract_gz(file_path):
     """
     Extracts a .gz file to the same directory
@@ -96,13 +101,11 @@ def download_and_extract_cifar(data_dir, dataset='cifar10'):
         cifar_dir = os.path.join(data_dir, 'cifar-100-python.tar.gz')
     else:
         raise ValueError("Invalid dataset name. Choose either 'cifar10' or 'cifar100'.")
-
-    extract_path = os.path.join(data_dir, dataset)
     
-    if not os.path.exists(extract_path):
+    if not os.path.exists(data_dir):
         print(f"Extracting {dataset} dataset...")
-        extract_tar(cifar_dir, extract_path)
-        print(f"{dataset} dataset extracted to {extract_path}.")
+        extract_tar(cifar_dir, data_dir)
+        print(f"{dataset} dataset extracted to {data_dir}.")
     else:
         print(f"{dataset} dataset already exists. Skipping extraction.")
 
@@ -111,6 +114,7 @@ def load_cifar(data_path, dataset='cifar10'):
     """
     Load CIFAR dataset
     """
+    data_path = os.path.join(data_path, 'cifar')
     if dataset == 'cifar10':
         data_dir = os.path.join(data_path, 'cifar-10-batches-py')
     elif dataset == 'cifar100':
@@ -119,20 +123,16 @@ def load_cifar(data_path, dataset='cifar10'):
 
     download_and_extract_cifar(data_path, dataset)
     if dataset == 'cifar10':
-        train_data, train_labels, test_data, test_labels = load_cifar10(data_dir)
+        return load_cifar10(data_dir)
     elif dataset == 'cifar100':
-        train_data, train_labels, test_data, test_labels = load_cifar100(data_dir)
-
-    return train_data, train_labels, test_data, test_labels
+        return load_cifar100(data_dir)
 
 
 # Function to load CIFAR-10 dataset
-
 def load_cifar10(file_path):
     """
     Load CIFAR-10 dataset
     """
-    cifar10_dir = os.path.join(file_path, 'cifar-10-batches-py')
     train_data = []
     train_labels = []
     test_data = []
@@ -140,7 +140,7 @@ def load_cifar10(file_path):
 
     # Load training data
     for i in range(1, 6):
-        batch = pickle.unpickle(os.path.join(cifar10_dir, f'data_batch_{i}'))
+        batch = unpickle(os.path.join(file_path, f'data_batch_{i}'))
         train_data.append(batch[b'data'])
         train_labels.append(batch[b'labels'])
 
@@ -149,7 +149,7 @@ def load_cifar10(file_path):
     train_labels = np.concatenate(train_labels)
 
     # Load test data
-    test_batch = pickle.unpickle(os.path.join(cifar10_dir, 'test_batch'))
+    test_batch = unpickle(os.path.join(file_path, 'test_batch'))
     test_data = test_batch[b'data']
     test_labels = np.array(test_batch[b'labels'])
 
@@ -162,19 +162,18 @@ def load_cifar100(file_path):
     """
     Load CIFAR-100 dataset
     """
-    cifar100_dir = os.path.join(file_path, 'cifar-100-python')
     train_data = []
     train_labels = []
     test_data = []
     test_labels = []
 
     # Load training data
-    train_batch = pickle.unpickle(os.path.join(cifar100_dir, 'train'))
+    train_batch = unpickle(os.path.join(file_path, 'train'))
     train_data = train_batch[b'data']
     train_labels = np.array(train_batch[b'fine_labels'])
 
     # Load test data
-    test_batch = pickle.unpickle(os.path.join(cifar100_dir, 'test'))
+    test_batch = unpickle(os.path.join(file_path, 'test'))
     test_data = test_batch[b'data']
     test_labels = np.array(test_batch[b'fine_labels'])
 

@@ -202,10 +202,10 @@ def main(args):
         test_x = test_x / 255.0
 
     elif args.dataset == 'cifar10':
-        return
+        train_x, train_y, test_x, test_y = raw_data_util.load_cifar(RAW_DATA_DIR, dataset='cifar10')
     
     elif args.dataset == 'cifar100':
-        return
+        train_x, train_y, test_x, test_y = raw_data_util.load_cifar(RAW_DATA_DIR, dataset='cifar100')
 
     else:
         raise ValueError(f"Unsupported dataset: {args.dataset}")
