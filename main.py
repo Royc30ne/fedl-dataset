@@ -252,14 +252,19 @@ def main(args):
     else:
         save_dir = os.path.join(FEDL_DATA_DIR, f"{args.dataset}_{args.subset}_{args.num_clients}_{args.sample}")
     
+    save_federated_data(train_data, os.path.join(save_dir, 'train'))
     if args.test_owner == 'server':
-        save_federated_data(train_data, os.path.join(save_dir, 'train'))
         save_test_data(test_x, test_y, os.path.join(save_dir, 'test'))
-    if args.test_owner == 'client':
+    elif args.test_owner == 'client':
         test_data = create_federated_data_iid(test_x, test_y, args.num_clients, client_id_prefix=args.c_prefix, random_seed=args.seed)
-        save_federated_data(train_data, os.path.join(save_dir, 'train'))
         save_federated_data(test_data, os.path.join(save_dir, 'test'))  
-              
+    elif args.test_owner == 'both':
+        save_test_data(test_x, test_y, os.path.join(save_dir, 'test_server'))
+        test_data = create_federated_data_iid(test_x, test_y, args.num_clients, client_id_prefix=args.c_prefix, random_seed=args.seed)
+        save_federated_data(test_data, os.path.join(save_dir, 'test'))
+    else:
+        raise ValueError("Invalid test owner. Choose either 'server', 'client', or 'both'.")
+
     print(f"Federated data created and saved for {len(train_data)} clients.")
 
 if __name__ == '__main__':
@@ -267,7 +272,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Federated Learning Data Preparation')
     parser.add_argument('--dataset', type=str, required=True, choices=['emnist', 'cifar10', 'cifar100'], help='Dataset to use (e.g., emnist)')
     parser.add_argument('--subset', type=str, default='balanced', choices=['balanced', 'digits', 'byclass'], help='Subset of the dataset to use')
-    parser.add_argument('--test_owner', type=str, default='server', choices=['server', 'client'],help='Test data owner')
+    parser.add_argument('--test_owner', type=str, default='server', choices=['server', 'client', 'both'],help='Test data owner')
     parser.add_argument('--num_clients', type=int, default=2000, required=True, help='Number of clients')
     parser.add_argument('-s', '--sample', type=str, required=True, choices=['iid', 'non_iid'], help='Sampling method (iid or non_iid)')
     parser.add_argument('--alpha', type=float, default=0.2, help='Alpha value for non_iid sample with Dirichlet distribution')
@@ -280,3 +285,4 @@ if __name__ == '__main__':
 
     main(parser.parse_args())
     
+
