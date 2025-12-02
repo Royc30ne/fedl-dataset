@@ -203,7 +203,10 @@ def main(args):
 
     elif args.dataset == 'cifar10':
         train_x, train_y, test_x, test_y = raw_data_util.load_cifar(RAW_DATA_DIR, dataset='cifar10')
-    
+        # show demo x and y shape and value
+        train_x = train_x / 255.0
+        test_x = test_x / 255.0
+
     elif args.dataset == 'cifar100':
         train_x, train_y, test_x, test_y = raw_data_util.load_cifar(RAW_DATA_DIR, dataset='cifar100')
 
