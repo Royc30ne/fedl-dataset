@@ -102,12 +102,20 @@ def download_and_extract_cifar(data_dir, dataset='cifar10'):
     else:
         raise ValueError("Invalid dataset name. Choose either 'cifar10' or 'cifar100'.")
     
-    if not os.path.exists(data_dir):
+    # Determine the expected extracted directory
+    if dataset == 'cifar10':
+        extracted_dir = os.path.join(data_dir, 'cifar-10-batches-py')
+    else:
+        extracted_dir = os.path.join(data_dir, 'cifar-100-python')
+
+    # BUG #7 FIX: Check the *extracted* subdirectory, not `data_dir` (which
+    # already exists after download).
+    if not os.path.exists(extracted_dir):
         print(f"Extracting {dataset} dataset...")
         extract_tar(cifar_dir, data_dir)
         print(f"{dataset} dataset extracted to {data_dir}.")
     else:
-        print(f"{dataset} dataset already exists. Skipping extraction.")
+        print(f"{dataset} dataset already extracted. Skipping extraction.")
 
 
 def load_cifar(data_path, dataset='cifar10'):

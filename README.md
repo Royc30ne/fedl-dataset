@@ -1,150 +1,170 @@
 # fedl-dataset
 
-This tool is designed to process centralized datasets into federated learning datasets. Currently, it supports the EMNIST dataset but is built to be extended to support other datasets in the future. The tool allows the user to create both IID (Independent and Identically Distributed) and non-IID datasets suitable for federated learning experiments. Additionally, it supports applying random label attacks and label mapping attacks to the data.
+A toolkit for converting centralized datasets into federated learning datasets. Supports EMNIST, CIFAR-10, and CIFAR-100 with multiple partitioning strategies, data poisoning attacks, and automatic distribution statistics.
 
 ## Features
 
-- **Download and Extract Dataset**: Automatically downloads and extracts the EMNIST dataset if not already available.
-- **IID Data Partitioning**: Splits the dataset into IID partitions across multiple clients.
-- **Non-IID Data Partitioning**: Splits the dataset into non-IID partitions using Dirichlet distribution across multiple clients.
-- **Flexible Client Configuration**: Allows custom prefix for client IDs and configurable alpha value for Dirichlet distribution.
-- **Random Label Attack**: Randomly shuffles the labels of a specified percentage of the dataset.
-- **Label Mapping Attack**: Maps one label to another label for a specified percentage of the dataset.
+- **Download and Extract Dataset**: Automatically downloads and extracts datasets if not already available.
+- **Multiple Partitioning Strategies**:
+  - **IID**: Uniform random split across clients.
+  - **Non-IID (Dirichlet)**: Class-level heterogeneity controlled by α parameter.
+  - **Pathological**: Each client gets only K classes (classic FedAvg setting).
+  - **Quantity Skew**: IID labels but unequal data sizes per client.
+- **Attack Simulation**:
+  - **Random Label**: Randomly shuffles labels for attacker clients.
+  - **Label Mapping**: Maps one label to another for targeted attacks.
+  - **Noise Feature**: Adds Gaussian noise to features.
+- **Distribution Statistics**: Automatically generates `stats.json` with per-client sample counts and class distributions.
+- **Flexible Client Configuration**: Customizable client ID prefix, random seed, and more.
 
 ## Requirements
 
 - Python 3.x
 - `numpy`
 - `wget`
-- `argparse`
 - `tqdm`
-- `gzip`
-- `zipfile`
-- `shutil`
+- `huggingface_hub`
 
 Install the required Python packages using:
 
 ```sh
-pip install numpy wget argparse argparse tqdm gzip zipfile shutil
+pip install -r requirements.txt
 ```
 
 ## Usage
 
+### Basic Partitioning
+
 **IID Sampling**
 
 ```sh
-python main.py --dataset emnist --num_clients 10 -s iid --c_prefix client_
+python main.py --dataset emnist --subset digits --num_clients 10 -s iid --seed 42
 ```
-**Non-IID Sampling**
+
+**Non-IID Sampling (Dirichlet)**
 
 ```sh
-python main.py --dataset emnist --num_clients 10 -s noniid --c_prefix client_ --alpha 0.5
+# α=0.5 (moderate heterogeneity)
+python main.py --dataset emnist --subset digits --num_clients 10 -s non_iid --alpha 0.5 --seed 42
+
+# α=0.1 (high heterogeneity)
+python main.py --dataset cifar10 --num_clients 100 -s non_iid --alpha 0.1 --seed 42
 ```
+
+**Pathological Non-IID (K classes per client)**
+
+```sh
+# Each client gets exactly 2 classes (FedAvg paper setting)
+python main.py --dataset emnist --subset digits --num_clients 10 -s pathological --n_classes 2 --seed 42
+
+# Each client gets 5 classes
+python main.py --dataset cifar100 --num_clients 50 -s pathological --n_classes 5 --seed 42
+```
+
+**Quantity Skew (unequal data sizes)**
+
+```sh
+python main.py --dataset cifar10 --num_clients 20 -s quantity_skew --alpha 0.5 --seed 42
+```
+
+### Attack Simulation
 
 **Random Label Attack**
 
 ```sh
-python main.py --dataset emnist --subset balanced --num_clients 10 -s iid --c_prefix client_ --attack random_label --attack_percentage 0.1
+python main.py --dataset emnist --subset digits --num_clients 10 -s iid \
+    --attack random_label --attack_percentage 0.2 --seed 42
 ```
 
 **Label Mapping Attack**
 
 ```sh
-python main.py --dataset emnist --subset balanced --num_clients 10 -s iid --c_prefix client_ --attack label_mapping --source_label 0 --target_label 1 --attack_percentage 0.1
+python main.py --dataset emnist --subset digits --num_clients 10 -s iid \
+    --attack label_mapping --source_label 0 --target_label 1 --attack_percentage 0.5 --seed 42
 ```
+
+**Noise Feature Attack**
+
+```sh
+python main.py --dataset cifar10 --num_clients 10 -s non_iid --alpha 0.5 \
+    --attack noise_feature --noise_std 0.3 --attack_percentage 0.1 --seed 42
+```
+
+### Test Data Options
+
+```sh
+# Test data kept on server (default)
+python main.py --dataset emnist --subset digits --num_clients 10 -s iid --test_owner server
+
+# Test data distributed to clients
+python main.py --dataset emnist --subset digits --num_clients 10 -s iid --test_owner client
+
+# Both server and client test data
+python main.py --dataset emnist --subset digits --num_clients 10 -s iid --test_owner both
+```
+
+## Benchmark Experiment Recipes
+
+| Experiment | Strategy | Key Parameters | Command |
+|-----------|----------|---------------|---------|
+| FedAvg baseline | `iid` | — | `--dataset cifar10 --num_clients 100 -s iid` |
+| FedAvg non-IID | `pathological` | `--n_classes 2` | `--dataset cifar10 --num_clients 100 -s pathological --n_classes 2` |
+| Heterogeneity study | `non_iid` | `--alpha 0.1/0.5/1.0` | `--dataset cifar10 --num_clients 100 -s non_iid --alpha 0.1` |
+| Data imbalance | `quantity_skew` | `--alpha 0.5` | `--dataset cifar10 --num_clients 100 -s quantity_skew --alpha 0.5` |
+| Byzantine robustness | `iid` + attack | `--attack random_label` | `--dataset cifar10 --num_clients 100 -s iid --attack random_label --attack_percentage 0.2` |
+| Backdoor attack | `iid` + attack | `--attack label_mapping` | `--dataset cifar10 --num_clients 100 -s iid --attack label_mapping --source_label 0 --target_label 1 --attack_percentage 0.3` |
 
 ## Arguments
 
-The following arguments can be used to customize the behavior of the script. 
+### Dataset
 
-- `--dataset`: Specifies the dataset to use.
-  - **Type**: `str`
-  - **Required**: Yes
-  - **Example**: `--dataset emnist`
-  - **Description**: Dataset to use (e.g., emnist)
+| Argument | Type | Default | Choices | Description |
+|----------|------|---------|---------|-------------|
+| `--dataset` | str | *(required)* | `emnist`, `cifar10`, `cifar100` | Dataset to use |
+| `--subset` | str | `balanced` | `balanced`, `digits`, `byclass` | EMNIST subset |
+| `--test_owner` | str | `server` | `server`, `client`, `both` | Where test data is stored |
 
-- `--subset`: Specifies the subset of the dataset to use.
-  - **Type**: `str`
-  - **Required**: No
-  - **Default**: `balanced`
-  - **Choices**: `balanced`, `digits`, `byclass`
-  - **Example**: `--subset digits`
-  - **Description**: Subset of the dataset to use
+### Partitioning
 
-- `--test_owner`: Specifies the owner of the test data.
-  - **Type**: `str`
-  - **Required**: No
-  - **Default**: `server`
-  - **Choices**: `server`, `client`
-  - **Example**: `--test_owner client`
-  - **Description**: Test data owner. 
-    - When `test_owner` is `server`, the test dataset will be a centralized dataset with train data and train labels.
-    - When `test_owner` is `client`, the test data will be sampled to each client, matching the train client_id.
+| Argument | Type | Default | Choices | Description |
+|----------|------|---------|---------|-------------|
+| `--num_clients` | int | *(required)* | — | Number of clients |
+| `-s`, `--sample` | str | *(required)* | `iid`, `non_iid`, `pathological`, `quantity_skew` | Partitioning strategy |
+| `--alpha` | float | `0.5` | — | Dirichlet α for `non_iid` / `quantity_skew` (smaller = more heterogeneous) |
+| `--n_classes` | int | `2` | — | Classes per client for `pathological` |
+| `--balance` / `--no_balance` | flag | `True` | — | Balance client sizes in `non_iid` mode |
+| `--c_prefix` | str | `client_` | — | Client ID prefix |
+| `--seed` | int | `1` | — | Random seed |
 
-- `--num_clients`: Specifies the number of clients.
-  - **Type**: `int`
-  - **Required**: Yes
-  - **Default**: `2000`
-  - **Example**: `--num_clients 1000`
-  - **Description**: Number of clients
+### Attack
 
-- `-s, --sample`: Specifies the sampling method to use.
-  - **Type**: `str`
-  - **Required**: Yes
-  - **Choices**: `iid`, `non_iid`
-  - **Example**: `--sample iid`
-  - **Description**: Sampling method (iid or non_iid)
+| Argument | Type | Default | Choices | Description |
+|----------|------|---------|---------|-------------|
+| `--attack` | str | `None` | `random_label`, `label_mapping`, `noise_feature` | Attack type |
+| `--attack_percentage` | float | `0.1` | — | Fraction of clients to attack (0.0 - 1.0) |
+| `--source_label` | int | `0` | — | Source label for `label_mapping` |
+| `--target_label` | int | `1` | — | Target label for `label_mapping` |
+| `--noise_std` | float | `0.5` | — | Gaussian noise std for `noise_feature` |
 
-- `--alpha`: Specifies the alpha value for non_iid sample with Dirichlet distribution.
-  - **Type**: `float`
-  - **Required**: No
-  - **Default**: `0.5`
-  - **Example**: `--alpha 0.3`
-  - **Description**: Alpha value for non_iid sample with Dirichlet distribution
+## Output Structure
 
-- `--c_prefix`: Specifies the client name prefix.
-  - **Type**: `str`
-  - **Required**: No
-  - **Default**: `client_`
-  - **Example**: `--c_prefix user_`
-  - **Description**: Client name prefix
+```
+fedl_data/
+└── emnist_digits_10_iid/
+    ├── train/
+    │   ├── client_0_x.npy
+    │   ├── client_0_y.npy
+    │   ├── client_1_x.npy
+    │   └── ...
+    ├── test/
+    │   ├── test_images.npy
+    │   └── test_labels.npy
+    └── stats.json
+```
 
-- `--seed`: Specifies the seed for the random number generator.
-  - **Type**: `int`
-  - **Required**: No
-  - **Default**: `1`
-  - **Example**: `--seed 42`
-  - **Description**: Seed for random number generator
-
-- `--attack`: Specifies the type of attack to apply.
-  - **Type**: `str`
-  - **Required**: No
-  - **Default**: `None`
-  - **Choices**: `random_label`, `label_mapping`
-  - **Example**: `--attack random_label`
-  - **Description**: Type of attack to apply
-
-- `--attack_percentage`: Specifies the percentage of data to attack.
-  - **Type**: `float`
-  - **Required**: No
-  - **Default**: `0.1`
-  - **Example**: `--attack_percentage 0.2`
-  - **Description**: Percentage of data to attack
-
-- `--source_label`: Specifies the source label for label mapping attack.
-  - **Type**: `int`
-  - **Required**: No
-  - **Default**: `0`
-  - **Example**: `--source_label 3`
-  - **Description**: Source label for label mapping attack
-
-- `--target_label`: Specifies the target label for label mapping attack.
-  - **Type**: `int`
-  - **Required**: No
-  - **Default**: `1`
-  - **Example**: `--target_label 5`
-  - **Description**: Target label for label mapping attack
-
+The `stats.json` file contains:
+- Per-client sample counts and class distributions
+- Summary statistics (mean, std, min, max samples per client)
 
 ## License
 
@@ -153,3 +173,4 @@ This project is licensed under the MIT License. See the LICENSE file for details
 ## Acknowledgments
 
 - The EMNIST dataset is provided by the National Institute of Standards and Technology (NIST).
+- CIFAR-10 and CIFAR-100 datasets by Alex Krizhevsky.
